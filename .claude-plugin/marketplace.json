@@ -1,6 +1,6 @@
 {
   "name": "bash-gloss",
-  "owner": { "name": "YOUR-GITHUB-NAME" },
+  "owner": { "name": "jaymulholland" },
   "plugins": [
     {
       "name": "bash-gloss",
