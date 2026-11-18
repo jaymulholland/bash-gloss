@@ -1,0 +1,26 @@
+{
+  "name": "bash-gloss",
+  "version": "0.1.0",
+  "description": "Plain-English gloss under each Bash call, written by a local Ollama model. No Claude tokens.",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "host": {
+      "type": "string",
+      "title": "Ollama host",
+      "description": "Base URL of your Ollama server.",
+      "default": "http://127.0.0.1:11434"
+    },
+    "model": {
+      "type": "string",
+      "title": "Ollama model",
+      "description": "Name of a model you have pulled in Ollama, e.g. nemotron-3-nano:4b or llama3.2.",
+      "default": "nemotron-3-nano:4b"
+    },
+    "dialogNotice": {
+      "type": "boolean",
+      "title": "Also show under the permission dialog",
+      "description": "Experimental. Adds the gloss as a line under the Allow this bash command dialog.",
+      "default": false
+    }
+  }
+}

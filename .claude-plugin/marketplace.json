@@ -1,0 +1,11 @@
+{
+  "name": "bash-gloss",
+  "owner": { "name": "YOUR-GITHUB-NAME" },
+  "plugins": [
+    {
+      "name": "bash-gloss",
+      "source": "./",
+      "description": "Plain-English gloss under each Bash call, written by a local Ollama model. No Claude tokens."
+    }
+  ]
+}
