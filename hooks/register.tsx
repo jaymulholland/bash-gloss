@@ -352,7 +352,6 @@ export const register: Register = (on, options) => {
   const model = String(options?.model || '').trim()
   // `claude plugin configure --values-stdin` stores booleans as strings, so accept both.
   const isOn = (v: unknown) => v === true || v === 'true'
-  const isDialogNotice = isOn(options?.dialogNotice)
 
   const names = String(options?.tools || DEFAULT_TOOLS)
     .split(',')
@@ -469,33 +468,8 @@ export const register: Register = (on, options) => {
         return clearBusy($, id).catch(() => {})
       })
 
-    let isDone = false
-    if (isDialogNotice) {
-      // The permission dialog opens inside next(e); a notice is refused until
-      // it is open, so retry until the call resolves.
-      // The tool row is hidden behind the dialog, so the wait shows as an
-      // animated notice here, replaced by the gloss when it arrives.
-      let line: string | undefined
-      void gloss.then(text => {
-        if (text) line = '↳ ' + text.split('\n').map(s => s.trim()).filter(Boolean).join(' | ')
-        else line = '' // no gloss: stop animating
-      })
-      void (async () => {
-        let frame = 0
-        for (let i = 0; i < 400 && !isDone && line !== ''; i++) {
-          try {
-            $.ui.notice(id, line ?? `↳ glossing… ${SPINNER[frame++ % SPINNER.length]}`)
-          } catch {}
-          await $.clock.sleep(line === undefined ? SPINNER_MS : 500)
-        }
-      })()
-    }
-
-    try {
-      return await next(e)
-    } finally {
-      isDone = true
-    }
+    void gloss // runs on its own; the tool call never waits for the model
+    return next(e)
   }).catch(($: any, e: any, next: any) => {
     // a failure here must never block a tool call, but it should not be silent either
     try {

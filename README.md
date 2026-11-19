@@ -108,8 +108,8 @@ Do these in order and stop on the first failure, telling the user what failed.
    `journalctl -u ollama | grep api/generate | tail -n 3` on Linux. A fresh
    `POST "/api/generate"` line means the plugin works. Ask the user whether they also
    see the dim `↳` line under the command.
-8. Report which model and host were configured. `dialogNotice` is off by default; tell the
-   user they can turn it on in `/config`. Claude Code labels it "from the bash-gloss plugin".
+8. Report which model and host were configured. Claude Code labels the gloss "from the
+   bash-gloss plugin".
 
 ### Troubleshooting
 
@@ -135,8 +135,6 @@ Set these in the plugin's config screen or `/config`.
 | `model` | none (required) | Name of a model you have pulled, as `ollama list` shows it. `/gloss-model` picks it from a list |
 | `tools` | `Bash,PowerShell,Agent,mcp` | Which tools get a gloss. Also available: `Edit`, `Write` (explains the change's effect), `WebFetch`, `WebSearch`. `mcp` covers every MCP tool, or name one as `mcp__server__tool` |
 | `includeReads` | off | Also gloss `Read`, `Grep` and `Glob`. Asked at install |
-| `dialogNotice` | off | While a call waits for approval, show the gloss under the permission dialog. Finished calls keep it under the row |
-
 ## Behaviour
 
 - Shell commands shorter than 25 characters are skipped. If a command runs a script file

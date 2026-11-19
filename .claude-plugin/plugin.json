@@ -27,12 +27,6 @@
       "title": "Also gloss Read, Grep and Glob",
       "description": "Off by default: these are frequent and mostly self-explanatory.",
       "default": false
-    },
-    "dialogNotice": {
-      "type": "boolean",
-      "title": "Also show under the permission dialog",
-      "description": "While a call waits for approval, show the gloss under the permission dialog. Finished calls keep their gloss under the row either way.",
-      "default": false
     }
   }
 }
