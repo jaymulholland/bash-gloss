@@ -1,3 +1,4 @@
+<img width="664" height="217" alt="Screenshot 2026-11-18 201817" src="https://github.com/user-attachments/assets/e8364490-2063-458e-9e54-3be163221fb7" />
 # bash-gloss
 
 A Claude Code mod that adds a plain-English gloss under tool calls (Bash, PowerShell,
