@@ -265,46 +265,110 @@ function finishGloss(raw: string, d: Pick<Described, 'tags' | 'warns'>): string 
 }
 // </gloss-core>
 
+// Helpers that take `$` are top-level function declarations (the host checks this).
+
+/** For a shell call that runs a script file, the start of that file. */
+async function scriptOf($: any, cmd: string): Promise<string> {
+  const m = SCRIPT_RE.exec(cmd)
+  const path = m?.[1]
+  if (!path) return ''
+  try {
+    return scriptNote(path, String(await $.fs.read(path, { length: SCRIPT_BYTES })) || undefined)
+  } catch {
+    return scriptNote(path, undefined) // missing, a directory, outside reach: tell the model it is unknown
+  }
+}
+
+async function installedModels($: any, host: string): Promise<string[]> {
+  const r = await $.http.fetch(`${host}/api/tags`, { method: 'GET' })
+  if (!r.ok) throw new Error(`Ollama at ${host} answered ${r.status}.`)
+  return (JSON.parse(r.text).models ?? []).map((m: { name: string }) => m.name as string)
+}
+
+async function saveModel($: any, name: string): Promise<string> {
+  const res = await $.config.set({ key: 'bash-gloss.model', value: name })
+  return res?.deny ? `Could not set the model: ${res.deny}` : `bash-gloss model set to "${name}".`
+}
+
+// One shared timer, alive only while some call is waiting on the model.
+let ticker: { cancel: () => void } | undefined
+async function markBusy($: any, id: string): Promise<void> {
+  await update($, busy, (b: Busy) => ({ ...b, ids: { ...b.ids, [id]: true as const } }))
+  ticker ??= $.clock.every(SPINNER_MS, () => {
+    void update($, busy, (b: Busy) => ({ ...b, frame: b.frame + 1 }))
+  })
+}
+async function clearBusy($: any, id: string): Promise<void> {
+  let left = 0
+  await update($, busy, (b: Busy) => {
+    const { [id]: _gone, ...ids } = b.ids
+    left = Object.keys(ids).length
+    return { ...b, ids }
+  })
+  if (left === 0) {
+    ticker?.cancel()
+    ticker = undefined
+  }
+}
+
+// Resolved once. A configured model is checked against Ollama; with none set
+// (an upgrade from 0.1.0, or a skipped prompt) the first installed
+// non-embedding model is used, so the mod never goes silently inert.
+let modelPromise: Promise<string | undefined> | undefined
+function resolveModel($: any, host: string, model: string): Promise<string | undefined> {
+  return (modelPromise ??= $.http
+    .fetch(`${host}/api/tags`, { method: 'GET' })
+    .then((r: { ok: boolean; status: number; text: string }) => {
+      if (!r.ok) {
+        $.ui.toast(`bash-gloss: Ollama at ${host} answered ${r.status}.`, { timeoutMs: 10000 })
+        return undefined
+      }
+      const have: string[] = (JSON.parse(r.text).models ?? []).map((m: { name: string }) => m.name)
+      if (model) {
+        if (!have.some(n => n === model || n === `${model}:latest`))
+          $.ui.toast(`bash-gloss: model "${model}" is not in Ollama. Run /gloss-model to pick an installed one.`, {
+            timeoutMs: 10000,
+          })
+        return model
+      }
+      const pick = have.find(n => !/embed/i.test(n))
+      $.ui.toast(
+        pick
+          ? `bash-gloss: no model set, using "${pick}". Run /gloss-model to choose another.`
+          : 'bash-gloss: no model set and Ollama has none. Run `ollama pull <model>` and set it in /config.',
+        { timeoutMs: 10000 },
+      )
+      return pick
+    })
+    .catch(() => {
+      $.ui.toast(`bash-gloss: cannot reach Ollama at ${host}. Is it running?`, { timeoutMs: 10000 })
+      modelPromise = undefined // try again on the next call
+      return undefined
+    }))
+}
+
 export const register: Register = (on, options) => {
   const host = String(options?.host || 'http://127.0.0.1:11434').replace(/\/+$/, '')
   const model = String(options?.model || '').trim()
-  const isDialogNotice = options?.dialogNotice === true
+  // `claude plugin configure --values-stdin` stores booleans as strings, so accept both.
+  const isOn = (v: unknown) => v === true || v === 'true'
+  const isDialogNotice = isOn(options?.dialogNotice)
 
   const names = String(options?.tools || DEFAULT_TOOLS)
     .split(',')
     .map(s => s.trim())
     .filter(Boolean)
-  if (options?.includeReads === true) names.push(...READ_TOOLS)
+  if (isOn(options?.includeReads)) names.push(...READ_TOOLS)
   const isMcp = names.some(n => n.toLowerCase() === 'mcp')
   const exact = [...new Set(names.filter(n => n.toLowerCase() !== 'mcp'))]
   // Explicit matchers: the hook only runs for the tools the user chose.
   const matcher = [...exact, ...(isMcp ? [/^mcp__/] : [])]
 
 
-  /** For a shell call that runs a script file, the start of that file. */
-  const scriptOf = async ($: any, cmd: string): Promise<string> => {
-    const m = SCRIPT_RE.exec(cmd)
-    if (!m) return ''
-    try {
-      return scriptNote(m[1], String(await $.fs.read(m[1], { length: SCRIPT_BYTES })) || undefined)
-    } catch {
-      return scriptNote(m[1], undefined) // missing, a directory, outside reach: tell the model it is unknown
-    }
-  }
-
   // /gloss-model: pick the Ollama model from what is installed instead of typing it.
   // `/gloss-model name` sets it directly. Registered even when no tools are chosen.
   const PICK = 'gloss-model'
   let installed: string[] = []
-  const installedModels = async ($: any): Promise<string[]> => {
-    const r = await $.http.fetch(`${host}/api/tags`, { method: 'GET' })
-    if (!r.ok) throw new Error(`Ollama at ${host} answered ${r.status}.`)
-    return (JSON.parse(r.text).models ?? []).map((m: { name: string }) => m.name as string)
-  }
-  const saveModel = async ($: any, name: string): Promise<string> => {
-    const res = await $.config.set({ key: 'bash-gloss.model', value: name })
-    return res?.deny ? `Could not set the model: ${res.deny}` : `bash-gloss model set to "${name}".`
-  }
 
   on('session.start', async ($: any, e: any, next: any) => {
     await $.command.register({
@@ -319,7 +383,7 @@ export const register: Register = (on, options) => {
     const arg = String(e.args ?? '').trim()
     try {
       if (arg) return { text: await saveModel($, arg) }
-      installed = (await installedModels($)).filter(n => !/embed/i.test(n))
+      installed = (await installedModels($, host)).filter(n => !/embed/i.test(n))
     } catch (err) {
       return { text: `bash-gloss: cannot list models. ${(err as Error).message || `Is Ollama running at ${host}?`}` }
     }
@@ -353,62 +417,6 @@ export const register: Register = (on, options) => {
 
   if (matcher.length === 0) return
 
-  // One shared timer, alive only while some call is waiting on the model.
-  let ticker: { cancel: () => void } | undefined
-  const markBusy = async ($: any, id: string) => {
-    await update($, busy, (b: Busy) => ({ ...b, ids: { ...b.ids, [id]: true as const } }))
-    ticker ??= $.clock.every(SPINNER_MS, () => {
-      void update($, busy, (b: Busy) => ({ ...b, frame: b.frame + 1 }))
-    })
-  }
-  const clearBusy = async ($: any, id: string) => {
-    let left = 0
-    await update($, busy, (b: Busy) => {
-      const { [id]: _gone, ...ids } = b.ids
-      left = Object.keys(ids).length
-      return { ...b, ids }
-    })
-    if (left === 0) {
-      ticker?.cancel()
-      ticker = undefined
-    }
-  }
-
-  // Resolved once. A configured model is checked against Ollama; with none set
-  // (an upgrade from 0.1.0, or a skipped prompt) the first installed
-  // non-embedding model is used, so the mod never goes silently inert.
-  let modelPromise: Promise<string | undefined> | undefined
-  const resolveModel = ($: any): Promise<string | undefined> =>
-    (modelPromise ??= $.http
-      .fetch(`${host}/api/tags`, { method: 'GET' })
-      .then((r: { ok: boolean; status: number; text: string }) => {
-        if (!r.ok) {
-          $.ui.toast(`bash-gloss: Ollama at ${host} answered ${r.status}.`, { timeoutMs: 10000 })
-          return undefined
-        }
-        const have: string[] = (JSON.parse(r.text).models ?? []).map((m: { name: string }) => m.name)
-        if (model) {
-          if (!have.some(n => n === model || n === `${model}:latest`))
-            $.ui.toast(`bash-gloss: model "${model}" is not in Ollama. Run /gloss-model to pick an installed one.`, {
-              timeoutMs: 10000,
-            })
-          return model
-        }
-        const pick = have.find(n => !/embed/i.test(n))
-        $.ui.toast(
-          pick
-            ? `bash-gloss: no model set, using "${pick}". Run /gloss-model to choose another.`
-            : 'bash-gloss: no model set and Ollama has none. Run `ollama pull <model>` and set it in /config.',
-          { timeoutMs: 10000 },
-        )
-        return pick
-      })
-      .catch(() => {
-        $.ui.toast(`bash-gloss: cannot reach Ollama at ${host}. Is it running?`, { timeoutMs: 10000 })
-        modelPromise = undefined // try again on the next call
-        return undefined
-      }))
-
   on('tool.call', { tool: matcher } as any, async ($: any, e: any, next: any) => {
     const tool = String(e.tool)
     const id = e.tool_use_id
@@ -424,7 +432,7 @@ export const register: Register = (on, options) => {
     // finishes at once still shows "glossing" on its first (maybe only) draw.
     // This waits for a local state write only; the call never waits for the model.
     await markBusy($, id).catch(() => {})
-    const gloss: Promise<string | undefined> = resolveModel($)
+    const gloss: Promise<string | undefined> = resolveModel($, host, model)
       .then(async (m: string | undefined) => {
         if (!m) return undefined
         const r = await $.http.fetch(`${host}/api/generate`, {
@@ -454,7 +462,12 @@ export const register: Register = (on, options) => {
         } catch {}
         return undefined
       })
-      .finally(() => clearBusy($, id).catch(() => {}))
+      .finally(() => {
+        try {
+          $.ui.status('') // clear the "glossing…" status once the model is done
+        } catch {}
+        return clearBusy($, id).catch(() => {})
+      })
 
     let isDone = false
     if (isDialogNotice) {
