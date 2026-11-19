@@ -5,7 +5,15 @@ file edits and writes, web fetches, subagents and MCP tools), so cryptic one-lin
 (`sed -i 's/.../.../' $f`) tell you what they do and what they touch. The gloss is
 written by a model running locally in [Ollama](https://ollama.com), so it costs no
 Claude tokens: the mod sends the call to your own machine and draws the reply on
-screen. Claude never sees it.
+screen. 
+
+**IMPORTANT** this add-on is for the Claude Code extension. You can ask it to help you install & configure. use /plugins to configure manually.
+**IMPORTANT** this add-on indiscriminately uses your GPU power by sending its prompts to a local model via your Ollama. likely degraded performance on systems under load.
+
+# why bash-gloss?
+a gloss is a quick definition or explanatory note, added to bash commads. its pretty simple.
+it gives hints that help you learn and understand the computational actions of your tool calls. not only do you get more insight, but by leveraging a local model, this plugin has 0 token overhead.
+I have to stress that it *hints* - as a 8B model can definitely make msitakes; understate dangers, and mis-represent commands. you could of course adjust this addon to use a cloud AI; but I wanted to start local-first.
 
 ```
 Bash  f=src/app.tsx && sed -i 's/oldName(/newName(/g' $f
@@ -85,8 +93,8 @@ Do these in order and stop on the first failure, telling the user what failed.
    `journalctl -u ollama | grep api/generate | tail -n 3` on Linux. A fresh
    `POST "/api/generate"` line means the plugin works. Ask the user whether they also
    see the dim `↳` line under the command.
-8. Report which model and host were configured. `dialogNotice` is on by default; tell the
-   user they can turn it off in `/config`.
+8. Report which model and host were configured. `dialogNotice` is off by default; tell the
+   user they can turn it on in `/config`. Claude Code labels it "from the bash-gloss plugin".
 
 ### Troubleshooting
 
@@ -112,7 +120,7 @@ Set these in the plugin's config screen or `/config`.
 | `model` | none (required) | Name of a model you have pulled, as `ollama list` shows it |
 | `tools` | `Bash,PowerShell,Agent,mcp` | Which tools get a gloss. Also available: `Edit`, `Write` (explains the change's effect), `WebFetch`, `WebSearch`. `mcp` covers every MCP tool, or name one as `mcp__server__tool` |
 | `includeReads` | off | Also gloss `Read`, `Grep` and `Glob`. Asked at install |
-| `dialogNotice` | on | While a call waits for approval, show the gloss under the permission dialog. Finished calls keep it under the row |
+| `dialogNotice` | off | While a call waits for approval, show the gloss under the permission dialog. Finished calls keep it under the row |
 
 ## Behaviour
 
