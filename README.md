@@ -1,10 +1,11 @@
 # bash-gloss
 
-A Claude Code mod that adds a plain-English gloss under every Bash tool call, so
-cryptic one-liners (`sed -i 's/.../.../' $f`) tell you what they do and what they
-touch. The gloss is written by a model running locally in [Ollama](https://ollama.com),
-so it costs no Claude tokens: the mod sends the command to your own machine and
-draws the reply on screen. Claude never sees it.
+A Claude Code mod that adds a plain-English gloss under tool calls (Bash, PowerShell,
+file edits and writes, web fetches, subagents and MCP tools), so cryptic one-liners
+(`sed -i 's/.../.../' $f`) tell you what they do and what they touch. The gloss is
+written by a model running locally in [Ollama](https://ollama.com), so it costs no
+Claude tokens: the mod sends the call to your own machine and draws the reply on
+screen. Claude never sees it.
 
 ```
 Bash  f=src/app.tsx && sed -i 's/oldName(/newName(/g' $f
@@ -15,7 +16,9 @@ Bash  f=src/app.tsx && sed -i 's/oldName(/newName(/g' $f
 ## Requirements
 
 - [Ollama](https://ollama.com) running locally (default `http://127.0.0.1:11434`)
-- A model pulled in Ollama. A small one is plenty: `ollama pull nemotron-3-nano:4b`
+- A model pulled in Ollama. A small one is plenty, e.g. `ollama pull llama3.2:3b`.
+  There is no default: you choose the model when you install, using the name exactly as
+  `ollama list` shows it.
 
 ## Install
 
@@ -23,8 +26,8 @@ Replace `<owner>/<repo>` with this repository's GitHub path.
 
 ### For humans
 
-1. Install Ollama and pull a model: `ollama pull nemotron-3-nano:4b`. Check it is
-   running with `ollama list`.
+1. Install Ollama and pull a model: `ollama pull llama3.2:3b`. Check it is
+   running with `ollama list` and note the model's name.
 2. Add the plugin. It is two steps: add the marketplace (this repository), then install
    the plugin from it. Adding the marketplace alone does not install anything. Pick one:
    - **Inside Claude Code (terminal or VS Code)**: type `/plugins`, add the marketplace
@@ -43,7 +46,9 @@ Replace `<owner>/<repo>` with this repository's GitHub path.
 4. Run any Bash command of 25 or more characters. A dim `↳` line should appear under it
    within a few seconds.
 
-If the model name differs on your machine, open `/config` and change **Ollama model**.
+Installing asks for **Ollama model** (required): type the name from `ollama list`. If you
+mistype it, the first gloss shows a toast saying the model is not in Ollama. Fix it
+later in `/config`.
 
 ### For agents
 
@@ -68,9 +73,10 @@ Do these in order and stop on the first failure, telling the user what failed.
    ```
    Then confirm with `claude plugin list` that `bash-gloss` appears as installed. If the
    marketplace is already added, skip the first command.
-5. If the chosen model is not `nemotron-3-nano:4b`, tell the user to set it in `/config`
-   (the field is `bash-gloss.model`), since you cannot type slash commands. If Ollama is
-   not on `127.0.0.1:11434`, the same goes for `host`.
+5. The model has no default, so the plugin does nothing until it is set. Tell the user to
+   enter the chosen model name when the install prompts for it, or in `/config` (the
+   field is `bash-gloss.model`), since you cannot type slash commands. If Ollama is not
+   on `127.0.0.1:11434`, the same goes for `host`.
 6. Ask the user to run `/reload-plugins` (or start a new chat). It must report `1 plugin`
    or more. `0 plugins` means step 4 did not finish.
 7. Verify: run a Bash command of at least 25 characters, then confirm Ollama received a
@@ -79,8 +85,8 @@ Do these in order and stop on the first failure, telling the user what failed.
    `journalctl -u ollama | grep api/generate | tail -n 3` on Linux. A fresh
    `POST "/api/generate"` line means the plugin works. Ask the user whether they also
    see the dim `↳` line under the command.
-8. Report which model and host were configured. Do not enable `dialogNotice` unless the
-   user asks, because it is experimental.
+8. Report which model and host were configured. `dialogNotice` is on by default; tell the
+   user they can turn it off in `/config`.
 
 ### Troubleshooting
 
@@ -103,12 +109,17 @@ Set these in the plugin's config screen or `/config`.
 | Setting | Default | What it does |
 | --- | --- | --- |
 | `host` | `http://127.0.0.1:11434` | Your Ollama server |
-| `model` | `nemotron-3-nano:4b` | Any model you have pulled |
-| `dialogNotice` | off | Experimental: also show the gloss under the "Allow this bash command?" dialog |
+| `model` | none (required) | Name of a model you have pulled, as `ollama list` shows it |
+| `tools` | `Bash,PowerShell,Agent,mcp` | Which tools get a gloss. Also available: `Edit`, `Write` (explains the change's effect), `WebFetch`, `WebSearch`. `mcp` covers every MCP tool, or name one as `mcp__server__tool` |
+| `includeReads` | off | Also gloss `Read`, `Grep` and `Glob`. Asked at install |
+| `dialogNotice` | on | While a call waits for approval, show the gloss under the permission dialog. Finished calls keep it under the row |
 
 ## Behaviour
 
-- Commands shorter than 25 characters are skipped.
+- Shell commands shorter than 25 characters are skipped. If a command runs a script file
+  (`./deploy.sh`, `python gen.py`), the first 3 KB of it is sent too, so the gloss says what
+  the script does. Edit, Write, WebFetch and WebSearch are off by default because the
+  transcript already shows what they do.
 - The request is sent in the background when the call starts, and the command never
   waits for it. The gloss appears under the row a moment later. A cold model can take a
   few seconds to load.
