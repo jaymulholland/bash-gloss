@@ -13,7 +13,7 @@
     "model": {
       "type": "string",
       "title": "Ollama model",
-      "description": "Required. Name of a model you have pulled, exactly as `ollama list` shows it, e.g. llama3.2:3b or qwen2.5:3b. A small one is plenty.",
+      "description": "Required. Name of a model you have pulled, exactly as `ollama list` shows it, e.g. llama3.2:3b or qwen2.5:3b. A small one is plenty. Or skip typing: run /gloss-model to pick from your installed models.",
       "required": true
     },
     "tools": {

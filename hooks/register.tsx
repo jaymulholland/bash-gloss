@@ -292,10 +292,66 @@ export const register: Register = (on, options) => {
     }
   }
 
-  if (matcher.length === 0) return
+  // /gloss-model: pick the Ollama model from what is installed instead of typing it.
+  // `/gloss-model name` sets it directly. Registered even when no tools are chosen.
+  const PICK = 'gloss-model'
+  let installed: string[] = []
+  const installedModels = async ($: any): Promise<string[]> => {
+    const r = await $.http.fetch(`${host}/api/tags`, { method: 'GET' })
+    if (!r.ok) throw new Error(`Ollama at ${host} answered ${r.status}.`)
+    return (JSON.parse(r.text).models ?? []).map((m: { name: string }) => m.name as string)
+  }
+  const saveModel = async ($: any, name: string): Promise<string> => {
+    const res = await $.config.set({ key: 'bash-gloss.model', value: name })
+    return res?.deny ? `Could not set the model: ${res.deny}` : `bash-gloss model set to "${name}".`
+  }
 
-  let sid: string | undefined // temporary, for the render experiment
-  let lastDraw = 0
+  on('session.start', async ($: any, e: any, next: any) => {
+    await $.command.register({
+      name: 'gloss-model',
+      description: 'Pick the Ollama model bash-gloss uses, from your installed models',
+      argumentHint: '[model]',
+    })
+    return next(e)
+  })
+
+  on('command.run', { command: 'gloss-model' } as any, async ($: any, e: any) => {
+    const arg = String(e.args ?? '').trim()
+    try {
+      if (arg) return { text: await saveModel($, arg) }
+      installed = (await installedModels($)).filter(n => !/embed/i.test(n))
+    } catch (err) {
+      return { text: `bash-gloss: cannot list models. ${(err as Error).message || `Is Ollama running at ${host}?`}` }
+    }
+    if (installed.length === 0) return { text: 'bash-gloss: Ollama has no models. Run `ollama pull <model>` first.' }
+    const list = installed.map(n => `  ${n}${n === model ? '  (current)' : ''}`).join('\n')
+    const opened = await $.ui.open({ id: PICK, title: 'Ollama model' }).catch(() => undefined)
+    if (opened?.isPlaced) return { text: 'Pick a model in the pane.' }
+    // No surface draws panes here: list them, and the user finishes with an argument.
+    return { text: `Installed models:\n${list}\nRun /gloss-model <name> to choose one.` }
+  })
+
+  on('ui.render', { component: 'Pane', requestId: PICK } as any, async ($: any, e: any) => {
+    const { Box, Text, Select } = $.ui.resolve(e)
+    return (
+      <Box flexDirection="column">
+        <Text dimColor>Pick the model bash-gloss uses.</Text>
+        <Select
+          key="gloss-model-select"
+          autoFocus
+          options={installed.map(n => ({ value: n }))}
+          value={installed.includes(model) ? model : installed[0]}
+          onSelect={async (value: string) => {
+            const msg = await saveModel($, value)
+            $.ui.toast(`bash-gloss: ${msg}`, { timeoutMs: 6000 })
+            await $.ui.close({ id: PICK })
+          }}
+        />
+      </Box>
+    )
+  })
+
+  if (matcher.length === 0) return
 
   // One shared timer, alive only while some call is waiting on the model.
   let ticker: { cancel: () => void } | undefined
@@ -333,7 +389,7 @@ export const register: Register = (on, options) => {
         const have: string[] = (JSON.parse(r.text).models ?? []).map((m: { name: string }) => m.name)
         if (model) {
           if (!have.some(n => n === model || n === `${model}:latest`))
-            $.ui.toast(`bash-gloss: model "${model}" is not in Ollama. Run \`ollama list\`, then set it in /config.`, {
+            $.ui.toast(`bash-gloss: model "${model}" is not in Ollama. Run /gloss-model to pick an installed one.`, {
               timeoutMs: 10000,
             })
           return model
@@ -341,7 +397,7 @@ export const register: Register = (on, options) => {
         const pick = have.find(n => !/embed/i.test(n))
         $.ui.toast(
           pick
-            ? `bash-gloss: no model set, using "${pick}". Set Ollama model in /config to choose another.`
+            ? `bash-gloss: no model set, using "${pick}". Run /gloss-model to choose another.`
             : 'bash-gloss: no model set and Ollama has none. Run `ollama pull <model>` and set it in /config.',
           { timeoutMs: 10000 },
         )
@@ -420,15 +476,6 @@ export const register: Register = (on, options) => {
 
   // Any tool row that has a gloss gets it; rows without one render untouched.
   on('ui.render', { component: 'ToolUse' }, async ($, e, next) => {
-    // TEMPORARY experiment: do hidden tabs stop drawing rows? Shown on the status line.
-    try {
-      sid ??= String(await $.session.id()).slice(0, 4)
-      const now = Date.now()
-      if (now - lastDraw > 1000) {
-        lastDraw = now
-        $.ui.status(`gloss draw ${sid} ${new Date(now).toLocaleTimeString()}`)
-      }
-    } catch {}
     const gloss = (await read($, glosses))[e.props.tool_use_id]
     if (!gloss) {
       const b = await read($, busy)

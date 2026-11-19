@@ -14,6 +14,9 @@ Bash  f=src/app.tsx && sed -i 's/oldName(/newName(/g' $f
     TOUCHES: src/app.tsx
 ```
 
+> **Choose your model without typing it:** run `/gloss-model` in Claude Code to pick from the
+> models you have installed in Ollama. Or set one directly with `/gloss-model llama3.2:3b`.
+
 **Heads up**
 
 - This is a plugin for Claude Code. To install it, paste this README into Claude Code and
@@ -67,8 +70,8 @@ alone installs nothing.
    within a few seconds.
 
 Installing asks for **Ollama model** (required): type the name from `ollama list`. If you
-mistype it, the first gloss shows a toast saying the model is not in Ollama. Fix it
-later in `/config`.
+mistype it, the first gloss shows a toast saying the model is not in Ollama. Run
+`/gloss-model` to pick an installed model from a list, or change it in `/config`.
 
 ### For agents
 
@@ -129,7 +132,7 @@ Set these in the plugin's config screen or `/config`.
 | Setting | Default | What it does |
 | --- | --- | --- |
 | `host` | `http://127.0.0.1:11434` | Your Ollama server |
-| `model` | none (required) | Name of a model you have pulled, as `ollama list` shows it |
+| `model` | none (required) | Name of a model you have pulled, as `ollama list` shows it. `/gloss-model` picks it from a list |
 | `tools` | `Bash,PowerShell,Agent,mcp` | Which tools get a gloss. Also available: `Edit`, `Write` (explains the change's effect), `WebFetch`, `WebSearch`. `mcp` covers every MCP tool, or name one as `mcp__server__tool` |
 | `includeReads` | off | Also gloss `Read`, `Grep` and `Glob`. Asked at install |
 | `dialogNotice` | off | While a call waits for approval, show the gloss under the permission dialog. Finished calls keep it under the row |
