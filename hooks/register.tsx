@@ -416,6 +416,9 @@ export const register: Register = (on, options) => {
     const d = describe(tool, e as Input)
     if (!d) return next(e)
     if (tool === 'Bash' || tool === 'PowerShell') d.body += await scriptOf($, str(e.command, 3000))
+    try {
+      $.ui.status(`bash-gloss: glossing ${tool}…`) // visible proof the hook fired
+    } catch {}
 
     // Mark busy BEFORE the row first draws, so a call that is auto-approved and
     // finishes at once still shows "glossing" on its first (maybe only) draw.
@@ -435,14 +438,22 @@ export const register: Register = (on, options) => {
             options: { temperature: 0.1, num_predict: 90 },
           }),
         })
-        if (!r.ok) return undefined
+        if (!r.ok) {
+          $.ui.toast(`bash-gloss: Ollama /api/generate answered ${r.status} for "${m}".`, { timeoutMs: 8000 })
+          return undefined
+        }
         const text = String(JSON.parse(r.text).response ?? '').trim()
         // Tidied reply plus the program's own WARNING/FACT lines, which hold even if the model errs.
         const out = finishGloss(text, d)
         if (out) await update($, glosses, (g: Glosses) => ({ ...g, [id]: out }))
         return out || undefined
       })
-      .catch(() => undefined)
+      .catch((err: unknown) => {
+        try {
+          $.ui.toast(`bash-gloss: gloss failed: ${(err as Error)?.message ?? String(err)}`, { timeoutMs: 8000 })
+        } catch {}
+        return undefined
+      })
       .finally(() => clearBusy($, id).catch(() => {}))
 
     let isDone = false
@@ -472,7 +483,13 @@ export const register: Register = (on, options) => {
     } finally {
       isDone = true
     }
-  }).catch(($: any, e: any, next: any) => next(e)) // a failure here must never block a tool call
+  }).catch(($: any, e: any, next: any) => {
+    // a failure here must never block a tool call, but it should not be silent either
+    try {
+      $.ui.toast('bash-gloss: the tool.call hook failed; this call runs unglossed.', { timeoutMs: 8000 })
+    } catch {}
+    return next(e)
+  })
 
   // Any tool row that has a gloss gets it; rows without one render untouched.
   on('ui.render', { component: 'ToolUse' }, async ($, e, next) => {

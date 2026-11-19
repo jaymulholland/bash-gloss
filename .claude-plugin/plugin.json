@@ -1,6 +1,6 @@
 {
   "name": "bash-gloss",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Plain-English gloss under opaque tool calls (shell commands and the scripts they run, subagents, MCP), written by a local Ollama model. No Claude tokens.",
   "types": "./types/index.d.ts",
   "userConfig": {
