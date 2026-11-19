@@ -361,8 +361,10 @@ export const register: Register = (on, options) => {
     if (!d) return next(e)
     if (tool === 'Bash' || tool === 'PowerShell') d.body += await scriptOf($, str(e.command, 3000))
 
-    // Fire and forget: the call never waits for the model.
-    void markBusy($, id).catch(() => {})
+    // Mark busy BEFORE the row first draws, so a call that is auto-approved and
+    // finishes at once still shows "glossing" on its first (maybe only) draw.
+    // This waits for a local state write only; the call never waits for the model.
+    await markBusy($, id).catch(() => {})
     const gloss: Promise<string | undefined> = resolveModel($)
       .then(async (m: string | undefined) => {
         if (!m) return undefined
@@ -391,16 +393,22 @@ export const register: Register = (on, options) => {
     if (isDialogNotice) {
       // The permission dialog opens inside next(e); a notice is refused until
       // it is open, so retry until the call resolves.
-      void gloss.then(async text => {
-        if (!text) return
-        const line = '↳ ' + text.split('\n').map(s => s.trim()).filter(Boolean).join(' | ')
-        for (let i = 0; i < 40 && !isDone; i++) {
-          try {
-            $.ui.notice(id, line)
-          } catch {}
-          await $.clock.sleep(500)
-        }
+      // The tool row is hidden behind the dialog, so the wait shows as an
+      // animated notice here, replaced by the gloss when it arrives.
+      let line: string | undefined
+      void gloss.then(text => {
+        if (text) line = '↳ ' + text.split('\n').map(s => s.trim()).filter(Boolean).join(' | ')
+        else line = '' // no gloss: stop animating
       })
+      void (async () => {
+        let frame = 0
+        for (let i = 0; i < 400 && !isDone && line !== ''; i++) {
+          try {
+            $.ui.notice(id, line ?? `↳ glossing… ${SPINNER[frame++ % SPINNER.length]}`)
+          } catch {}
+          await $.clock.sleep(line === undefined ? SPINNER_MS : 500)
+        }
+      })()
     }
 
     try {
@@ -429,7 +437,7 @@ export const register: Register = (on, options) => {
       return (
         <Box flexDirection="column">
           {await next(e)}
-          <Text dimColor>↳ glossing {SPINNER[b.frame % SPINNER.length]}</Text>
+          <Text dimColor>↳ glossing… {SPINNER[b.frame % SPINNER.length]}</Text>
         </Box>
       )
     }

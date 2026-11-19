@@ -1,4 +1,3 @@
-
 # bash-gloss
 
 <img width="664" height="217" alt="Screenshot 2026-11-18 201817" src="https://github.com/user-attachments/assets/e8364490-2063-458e-9e54-3be163221fb7" />
@@ -7,21 +6,30 @@ A Claude Code mod that adds a plain-English gloss under tool calls (Bash, PowerS
 (`sed -i 's/.../.../' $f`) tell you what they do and what they touch. The gloss is
 written by a model running locally in [Ollama](https://ollama.com), so it costs no
 Claude tokens: the mod sends the call to your own machine and draws the reply on
-screen. 
-
-**IMPORTANT** this add-on is for the Claude Code extension. You can ask it to help you install & configure. use /plugins to configure manually and set your desired model.
-**IMPORTANT** this add-on indiscriminately uses your GPU power by sending its prompts to a local model via Ollama. likely degraded performance on systems under load.
-
-# why bash-gloss?
-a gloss is a quick definition or explanatory note, added to bash commads. its pretty simple.
-it gives hints that help you learn and understand the computational actions of your tool calls. not only do you get more insight, but by leveraging a local model, this plugin has 0 token overhead.
-I have to stress that it *hints* - as a 8B model can definitely make msitakes; understate dangers, and mis-represent commands. you could of course adjust this addon to use a cloud AI; but I wanted to start local-first.
+screen.
 
 ```
 Bash  f=src/app.tsx && sed -i 's/oldName(/newName(/g' $f
   ↳ DOES: Renames the function oldName to newName throughout the file
     TOUCHES: src/app.tsx
 ```
+
+**Heads up**
+
+- This is a plugin for Claude Code. To install it, paste this README into Claude Code and
+  ask it to follow the "For agents" steps, or follow "For humans" below.
+- It sends a prompt to a local model on every gloss, so it uses your GPU and may slow down
+  a machine that is already under load.
+
+## Why bash-gloss?
+
+A gloss is a quick definition or explanatory note, added to your commands. It's pretty simple.
+It gives hints that help you learn and understand what your tool calls actually do. You get
+more insight, and because the model is local, the plugin has zero token overhead.
+
+I have to stress that it *hints*: a small local model can definitely make mistakes,
+understate dangers, and misrepresent commands. You could of course adjust this add-on to
+use a cloud AI, but I wanted to start local-first.
 
 ## Requirements
 
@@ -32,28 +40,30 @@ Bash  f=src/app.tsx && sed -i 's/oldName(/newName(/g' $f
 
 ## Install
 
-Replace `<owner>/<repo>` with this repository's GitHub path.
+Claude Code installs plugins from a *marketplace*, which is just a GitHub repo that lists
+plugins. This repo is its own marketplace, so install is two steps: **add the marketplace**
+(`jaymulholland/bash-gloss`), then **install the plugin** from it. Adding the marketplace
+alone installs nothing.
 
 ### For humans
 
 1. Install Ollama and pull a model: `ollama pull llama3.2:3b`. Check it is
    running with `ollama list` and note the model's name.
-2. Add the plugin. It is two steps: add the marketplace (this repository), then install
-   the plugin from it. Adding the marketplace alone does not install anything. Pick one:
+2. Add and install, using one of:
    - **Inside Claude Code (terminal or VS Code)**: type `/plugins`, add the marketplace
-     `<owner>/<repo>`, open the **Discover** tab, select `bash-gloss` and install it with
+     `jaymulholland/bash-gloss`, open the **Discover** tab, select `bash-gloss` and install it with
      the **user** scope so every session loads it.
    - **Terminal with `claude` on your PATH**:
      ```
-     claude plugin marketplace add <owner>/<repo>
-     claude plugin install bash-gloss --marketplace <owner>/<repo> --scope user
+     claude plugin marketplace add jaymulholland/bash-gloss
+     claude plugin install bash-gloss --marketplace jaymulholland/bash-gloss --scope user
      ```
      If you only have the VS Code extension, `claude` is not on your PATH. Use the
      `/plugins` route above instead.
    - **Desktop app**, where `/plugin` does not run: click **+** next to the prompt box,
-     then **Plugins**, **Add marketplace** with `<owner>/<repo>`, then **Add plugin**.
+     then **Plugins**, **Add marketplace** with `jaymulholland/bash-gloss`, then **Add plugin**.
 3. Run `/reload-plugins`, or start a new chat. It should report `1 plugin`.
-4. Run any Bash command of 25 or more characters. A dim `↳` line should appear under it
+4. Run any Bash or PowerShell command of 25 or more characters. A dim `↳` line should appear under it
    within a few seconds.
 
 Installing asks for **Ollama model** (required): type the name from `ollama list`. If you
@@ -78,8 +88,8 @@ Do these in order and stop on the first failure, telling the user what failed.
 4. Install in two steps, using the command from step 3 in place of `claude`. Both are
    needed: adding the marketplace alone installs nothing.
    ```
-   claude plugin marketplace add <owner>/<repo>
-   claude plugin install bash-gloss --marketplace <owner>/<repo> --scope user
+   claude plugin marketplace add jaymulholland/bash-gloss
+   claude plugin install bash-gloss --marketplace jaymulholland/bash-gloss --scope user
    ```
    Then confirm with `claude plugin list` that `bash-gloss` appears as installed. If the
    marketplace is already added, skip the first command.
@@ -89,7 +99,7 @@ Do these in order and stop on the first failure, telling the user what failed.
    on `127.0.0.1:11434`, the same goes for `host`.
 6. Ask the user to run `/reload-plugins` (or start a new chat). It must report `1 plugin`
    or more. `0 plugins` means step 4 did not finish.
-7. Verify: run a Bash command of at least 25 characters, then confirm Ollama received a
+7. Verify: run a Bash or PowerShell command of at least 25 characters, then confirm Ollama received a
    request with
    `grep -a "api/generate" "$LOCALAPPDATA/Ollama/server.log" | tail -n 3` on Windows, or
    `journalctl -u ollama | grep api/generate | tail -n 3` on Linux. A fresh
@@ -108,7 +118,7 @@ Do these in order and stop on the first failure, telling the user what failed.
   installed. Open `/plugins`, go to **Discover** and install `bash-gloss`.
 - **`claude` is not recognized:** you have the VS Code extension but not the standalone
   CLI. Use `/plugins` inside Claude Code instead.
-- **Unknown marketplace or plugin:** run `claude plugin marketplace add <owner>/<repo>`
+- **Unknown marketplace or plugin:** run `claude plugin marketplace add jaymulholland/bash-gloss`
   first. A private repository needs your machine signed in to GitHub (`gh auth login`
   then `gh auth setup-git`).
 
