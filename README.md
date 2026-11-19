@@ -1,15 +1,16 @@
-<img width="664" height="217" alt="Screenshot 2026-11-18 201817" src="https://github.com/user-attachments/assets/e8364490-2063-458e-9e54-3be163221fb7" />
+
 # bash-gloss
 
-A Claude Code mod that adds a plain-English gloss under tool calls (Bash, PowerShell,
-file edits and writes, web fetches, subagents and MCP tools), so cryptic one-liners
+<img width="664" height="217" alt="Screenshot 2026-11-18 201817" src="https://github.com/user-attachments/assets/e8364490-2063-458e-9e54-3be163221fb7" />
+
+A Claude Code mod that adds a plain-English gloss under tool calls (Bash, PowerShell), so cryptic one-liners
 (`sed -i 's/.../.../' $f`) tell you what they do and what they touch. The gloss is
 written by a model running locally in [Ollama](https://ollama.com), so it costs no
 Claude tokens: the mod sends the call to your own machine and draws the reply on
 screen. 
 
-**IMPORTANT** this add-on is for the Claude Code extension. You can ask it to help you install & configure. use /plugins to configure manually.
-**IMPORTANT** this add-on indiscriminately uses your GPU power by sending its prompts to a local model via your Ollama. likely degraded performance on systems under load.
+**IMPORTANT** this add-on is for the Claude Code extension. You can ask it to help you install & configure. use /plugins to configure manually and set your desired model.
+**IMPORTANT** this add-on indiscriminately uses your GPU power by sending its prompts to a local model via Ollama. likely degraded performance on systems under load.
 
 # why bash-gloss?
 a gloss is a quick definition or explanatory note, added to bash commads. its pretty simple.
